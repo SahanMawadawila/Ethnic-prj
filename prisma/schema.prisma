@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- MODELS ---
+
+model Profile {
+  id              String   @id // Matches Supabase Auth ID
+  email           String   @unique
+  fullName        String   @map("full_name")
+  phone           String?
+  avatarUrl       String?  @map("avatar_url")
+  role            UserRole @default(SELLER)
+
+  // Collector Specifics
+  vehicleType     String?  @map("vehicle_type")
+  licensePlate    String?  @map("license_plate")
+  operatingRadius Float?   @map("operating_radius")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  itemsToSell     ScrapItem[] @relation("SellerItems")
+  itemsToCollect  ScrapItem[] @relation("CollectorPickups")
+
+  @@map("profiles")
+}
+
+model ScrapItem {
+  id              String        @id @default(uuid())
+  title           String
+  description     String?
+  wasteType       WasteType     @map("waste_type")
+  estimatedWeight Float         @map("estimated_weight")
+  imageUrl        String        @map("image_url")
+
+  // Location
+  latitude  Float
+  longitude Float
+  address   String
+
+  status ItemStatus @default(ACTIVE)
+
+  pickupTime  DateTime? @map("pickup_time")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  sellerId String  @map("seller_id")
+  seller   Profile @relation("SellerItems", fields: [sellerId], references: [id])
+
+  collectorId String?  @map("collector_id")
+  collector   Profile? @relation("CollectorPickups", fields: [collectorId], references: [id])
+
+  // Map to "scrap_items" table in DB
+  @@map("scrap_items")
+}
+
+// --- ENUMS ---
+
+enum UserRole {
+  SELLER
+  COLLECTOR
+  ADMIN
+
+  @@map("user_role")
+}
+
+// Renamed from ListingStatus -> ItemStatus
+enum ItemStatus {
+  ACTIVE
+  RESERVED
+  COLLECTED
+  CANCELLED
+
+  @@map("item_status")
+}
+
+enum WasteType {
+  PLASTIC
+  METAL
+  PAPER
+  E_WASTE
+  MIXED
+
+  @@map("waste_type")
+}
