@@ -4,7 +4,7 @@ EcoCycle is a full-stack platform built with Next.js, Supabase, and Prisma that 
 
 ## 🚀 Features
 
-- **Live Map Integration**: Real-time Google Maps view of available scrap pick-ups.
+- **Live Map Integration**: Real-time Leaflet & OpenStreetMap view of available scrap pick-ups.
 - **Role-based Dashboards**: Custom interfaces for both Sellers and Collectors.
 - **Premium Design**: Modern aesthetic with glassmorphism, custom mesh backgrounds, and responsive layouts.
 - **Location Services**: Integrated GPS tracking and address auto-detection.
@@ -20,7 +20,7 @@ EcoCycle is a full-stack platform built with Next.js, Supabase, and Prisma that 
 - **Auth**: Supabase Auth (SSR)
 - **Styling**: Tailwind CSS 4
 - **State Management**: Zustand
-- **Maps**: @vis.gl/react-google-maps
+- **Maps**: Leaflet & React-Leaflet (OpenStreetMap)
 
 ---
 
@@ -84,7 +84,6 @@ Ensure the following are set in your `.env`:
 - `DIRECT_URL`: Supabase Direct Connection URL (for migrations).
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous API key.
-- `NEXT_PUBLIC_GOOGLE_MAPS_KEY`: Your Google Maps JavaScript API key.
 
 ---
 

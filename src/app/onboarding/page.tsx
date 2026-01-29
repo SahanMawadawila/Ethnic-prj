@@ -35,9 +35,9 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { toast } from "sonner";
 
 const onboardingSchema = z.object({
-  vehicle_type: z.string().min(1, "Select a vehicle"),
-  license_plate: z.string().min(2, "Enter license plate"),
-  operating_radius: z.coerce.number().min(1).max(100),
+  vehicleType: z.string().min(1, "Select a vehicle"),
+  licensePlate: z.string().min(2, "Enter license plate"),
+  operatingRadius: z.coerce.number().min(1).max(100),
 });
 
 type OnboardingFormData = z.infer<typeof onboardingSchema>;
@@ -58,9 +58,9 @@ function OnboardingContent() {
   const form = useForm({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      vehicle_type: "",
-      license_plate: "",
-      operating_radius: 10,
+      vehicleType: "",
+      licensePlate: "",
+      operatingRadius: 10,
     },
   });
 
@@ -68,9 +68,9 @@ function OnboardingContent() {
     setIsLoading(true);
     try {
       const { error } = await updateProfile({
-        vehicleType: data.vehicle_type,
-        plateNumber: data.license_plate,
-        operatingRadius: data.operating_radius,
+        vehicleType: data.vehicleType,
+        licensePlate: data.licensePlate,
+        operatingRadius: data.operatingRadius,
       });
 
       if (error) {
@@ -103,7 +103,7 @@ function OnboardingContent() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="vehicle_type"
+                name="vehicleType"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Vehicle Type</FormLabel>
@@ -130,7 +130,7 @@ function OnboardingContent() {
               />
               <FormField
                 control={form.control}
-                name="license_plate"
+                name="licensePlate"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>License Plate</FormLabel>
@@ -143,7 +143,7 @@ function OnboardingContent() {
               />
               <FormField
                 control={form.control}
-                name="operating_radius"
+                name="operatingRadius"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Radius (km)</FormLabel>

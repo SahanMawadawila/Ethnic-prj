@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build (npm run build)
+    name: Build (npm  run build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
