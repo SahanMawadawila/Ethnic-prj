@@ -81,15 +81,40 @@ export default function CollectorDashboard() {
         const { latitude, longitude } = position.coords;
         setCurrentLocation(latitude, longitude);
         setLocationError(null);
-
-        // Optional: Update server with my live location for sellers to see
-        // updateLocation(latitude, longitude);
       },
       (error) => {
-        console.error("Geo Error:", error);
-        setLocationError("Location access denied. Please enable GPS.");
+        let errorMsg = "Location access denied. Please enable GPS.";
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = "Location permission denied. Please allow access to see nearby scrap.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMsg = "Location request timed out.";
+            break;
+        }
+
+        console.error("Geo Error:", {
+          code: error.code,
+          message: error.message
+        });
+        
+        setLocationError(errorMsg);
+        
+        // If we don't have a location, ensure we at least have the default center 
+        // set in the map store if it's currently null
+        if (!currentLatitude || !currentLongitude) {
+           // Optional: you could set a default city center here if needed
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 },
+      { 
+        enableHighAccuracy: false, // Switching to false can sometimes help with 'POSITION_UNAVAILABLE'
+        maximumAge: 30000, 
+        timeout: 10000 
+      },
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
