@@ -9,8 +9,6 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrapItem, WASTE_TYPE_CONFIG } from "@/types";
 import { Loader2, Navigation, Clock } from "lucide-react";
 import { useState } from "react";
@@ -19,7 +17,7 @@ interface ListingSheetProps {
   listing: ScrapItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAccept: (pickupTimeISO: string) => void;
+  onAccept: (eta: number) => void;
   isLoading: boolean;
 }
 
@@ -30,23 +28,9 @@ export function ListingSheet({
   onAccept,
   isLoading,
 }: ListingSheetProps) {
-  const [pickupTime, setPickupTime] = useState<string>("");
+  const [eta, setEta] = useState<number | null>(null);
 
   if (!listing) return null;
-
-  // Get minimum time (now + 5 minutes)
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 5);
-  const minTime = now.toTimeString().slice(0, 5);
-
-  const handleAccept = () => {
-    if (!pickupTime) return;
-    // Create a date for today with the selected time
-    const today = new Date();
-    const [hours, minutes] = pickupTime.split(':').map(Number);
-    today.setHours(hours, minutes, 0, 0);
-    onAccept(today.toISOString());
-  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -62,7 +46,7 @@ export function ListingSheet({
         </SheetHeader>
 
         <div className="grid gap-4 py-4">
-          {/* Image */}
+          {/* Image Placeholder */}
           <div className="aspect-video bg-muted rounded-md relative overflow-hidden">
             {listing.imageUrl ? (
               <img
@@ -87,35 +71,21 @@ export function ListingSheet({
             </span>
           </div>
 
-          {/* Seller Contact Info */}
-          {(listing as any).seller && (
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-              <p className="text-sm font-medium text-blue-900 mb-1">Seller Contact</p>
-              <p className="text-sm text-blue-800">
-                <strong>{(listing as any).seller.fullName}</strong>
-              </p>
-              {(listing as any).seller.phone && (
-                <p className="text-sm text-blue-700">
-                  📞 <a href={`tel:${(listing as any).seller.phone}`} className="underline">{(listing as any).seller.phone}</a>
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Time Picker */}
           <div className="bg-slate-50 p-3 rounded-lg border">
-            <Label htmlFor="pickupTime" className="text-sm font-medium mb-2 flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Select Pickup Time
-            </Label>
-            <Input
-              id="pickupTime"
-              type="time"
-              value={pickupTime}
-              onChange={(e) => setPickupTime(e.target.value)}
-              min={minTime}
-              className="mt-2"
-            />
+            <p className="text-sm font-medium mb-2">Select Arrival Time:</p>
+            <div className="flex gap-2">
+              {[15, 30, 60].map((mins) => (
+                <Button
+                  key={mins}
+                  variant={eta === mins ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEta(mins)}
+                  className="flex-1"
+                >
+                  {mins}m
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -134,8 +104,8 @@ export function ListingSheet({
 
             <Button
               className="flex-[2]"
-              disabled={!pickupTime || isLoading}
-              onClick={handleAccept}
+              disabled={!eta || isLoading}
+              onClick={() => eta && onAccept(eta)}
             >
               {isLoading ? (
                 <Loader2 className="animate-spin h-4 w-4" />
@@ -149,4 +119,3 @@ export function ListingSheet({
     </Sheet>
   );
 }
-

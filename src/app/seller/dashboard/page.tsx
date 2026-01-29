@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMyListings, disputePickup, markAsCollected, deleteScrapItem } from "@/app/actions";
+import {
+  getMyListings,
+  disputePickup,
+  markAsCollected,
+} from "@/app/actions";
 import { ScrapItem } from "@/types";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,27 +19,12 @@ import {
   AlertTriangle,
   Loader2,
   Plus,
-  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 import { CreateListingDialog } from "@/components/listings/CreateListingDialog";
-
-// Validate image URLs - accepts both HTTP URLs and local upload paths
-function isValidImageUrl(url: unknown): url is string {
-  if (typeof url !== "string" || url.length === 0) return false;
-  // Accept local uploads path
-  if (url.startsWith("/uploads/")) return true;
-  // Accept HTTP/HTTPS URLs
-  try {
-    const u = new URL(url);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 export default function SellerDashboard() {
   const [listings, setListings] = useState<ScrapItem[]>([]);
@@ -48,7 +37,7 @@ export default function SellerDashboard() {
 
   async function loadData() {
     const data = await getMyListings();
-    setListings(data as any);
+    setListings(data);
     setLoading(false);
   }
 
@@ -61,18 +50,6 @@ export default function SellerDashboard() {
         return "Pickup cancelled. Item is back on the map.";
       },
       error: "Failed to cancel.",
-    });
-  };
-
-  // Handle Delete
-  const handleDelete = async (id: string) => {
-    toast.promise(deleteScrapItem(id), {
-      loading: "Deleting listing...",
-      success: () => {
-        loadData(); // Refresh data
-        return "Listing deleted successfully.";
-      },
-      error: "Failed to delete.",
     });
   };
 
@@ -136,7 +113,7 @@ export default function SellerDashboard() {
           ) : (
             <>
               <TabsContent value="active" className="mt-6">
-                <ListingGrid items={active} type="ACTIVE" onDelete={handleDelete} />
+                <ListingGrid items={active} type="ACTIVE" />
               </TabsContent>
               <TabsContent value="reserved" className="mt-6">
                 <ListingGrid
@@ -176,7 +153,7 @@ function StatCard({ icon: Icon, label, value, color, bg }: any) {
   );
 }
 
-function ListingGrid({ items, type, onDispute, onDelete }: any) {
+function ListingGrid({ items, type, onDispute }: any) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12 border-2 border-dashed rounded-lg">
@@ -194,13 +171,12 @@ function ListingGrid({ items, type, onDispute, onDelete }: any) {
           className="overflow-hidden hover:shadow-lg transition-all"
         >
           <div className="relative aspect-video bg-muted">
-            {isValidImageUrl(item.imageUrl) ? (
+            {item.imageUrl ? (
               <Image
                 src={item.imageUrl}
-                alt={item.title ?? "listing image"}
+                alt={item.title}
                 fill
                 className="object-cover"
-                unoptimized
               />
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -218,25 +194,13 @@ function ListingGrid({ items, type, onDispute, onDelete }: any) {
           <CardContent>
             {type === "RESERVED" && (
               <div className="space-y-3">
-                {/* Collector Contact Info */}
-                {item.collector && (
-                  <div className="bg-green-50 p-2 rounded border border-green-100">
-                    <p className="text-xs font-medium text-green-900 mb-1">Collector</p>
-                    <p className="text-sm text-green-800 font-medium">{item.collector.fullName}</p>
-                    {item.collector.phone && (
-                      <p className="text-xs text-green-700">
-                        📞 <a href={`tel:${item.collector.phone}`} className="underline">{item.collector.phone}</a>
-                      </p>
-                    )}
-                  </div>
-                )}
                 <div className="bg-orange-50 text-orange-700 text-xs p-2 rounded flex items-center gap-2">
                   <Clock className="h-3 w-3" />
                   Pickup:{" "}
                   {item.pickupTime
                     ? formatDistanceToNow(new Date(item.pickupTime), {
-                      addSuffix: true,
-                    })
+                        addSuffix: true,
+                      })
                     : "Soon"}
                 </div>
                 <Button
@@ -250,37 +214,13 @@ function ListingGrid({ items, type, onDispute, onDelete }: any) {
               </div>
             )}
             {type === "ACTIVE" && (
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground italic">
-                  Waiting for collector...
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => onDelete(item.id)}
-                >
-                  <Trash2 className="h-3 w-3 mr-2" /> Delete Listing
-                </Button>
+              <div className="text-xs text-muted-foreground italic">
+                Waiting for collector...
               </div>
             )}
             {type === "COLLECTED" && (
-              <div className="space-y-2">
-                {/* Collector Contact Info */}
-                {item.collector && (
-                  <div className="bg-green-50 p-2 rounded border border-green-100">
-                    <p className="text-xs font-medium text-green-900 mb-1">Collected by</p>
-                    <p className="text-sm text-green-800 font-medium">{item.collector.fullName}</p>
-                    {item.collector.phone && (
-                      <p className="text-xs text-green-700">
-                        📞 <a href={`tel:${item.collector.phone}`} className="underline">{item.collector.phone}</a>
-                      </p>
-                    )}
-                  </div>
-                )}
-                <div className="text-xs text-green-600 font-medium flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3" /> Transaction Complete
-                </div>
+              <div className="text-xs text-green-600 font-medium flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" /> Transaction Complete
               </div>
             )}
           </CardContent>
