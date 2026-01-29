@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build (npm  run build)
+    name: Build (npm run build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -38,8 +38,5 @@ jobs:
           # Supabase (set these as GitHub Secrets)
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-
-          # Google Maps (set as GitHub Secret)
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
 
         run: npm run build
