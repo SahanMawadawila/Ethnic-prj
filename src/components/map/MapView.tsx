@@ -8,7 +8,7 @@ import { Navigation } from "lucide-react";
 import { useMapStore } from "@/store/mapStore";
 
 // Dynamically import Leaflet component to avoid SSR issues
-const MapInner = dynamic(() => import("./MapInner"), { 
+const MapInner = dynamic(() => import("./MapInner"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center">
@@ -19,17 +19,17 @@ const MapInner = dynamic(() => import("./MapInner"), {
 
 interface MapViewProps {
   listings: ScrapItem[];
-  onAcceptPickup: (id: string, eta: number) => Promise<void>;
+  onAcceptPickup: (id: string, pickupTimeISO: string) => Promise<void>;
 }
 
 export function MapView({ listings, onAcceptPickup }: MapViewProps) {
   const [selectedListing, setSelectedListing] = useState<ScrapItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   const { currentLatitude, currentLongitude } = useMapStore();
 
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(() => {
-    return currentLatitude && currentLongitude 
+    return currentLatitude && currentLongitude
       ? { lat: currentLatitude, lng: currentLongitude }
       : { lat: 20.5937, lng: 78.9629 };
   });
@@ -39,12 +39,12 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
     setMapCenter({ lat: listing.latitude, lng: listing.longitude });
   };
 
-  const handleAccept = async (etaMinutes: number) => {
+  const handleAccept = async (pickupTimeISO: string) => {
     if (!selectedListing) return;
 
     setIsUpdating(true);
     try {
-      await onAcceptPickup(selectedListing.id, etaMinutes);
+      await onAcceptPickup(selectedListing.id, pickupTimeISO);
       setSelectedListing(null);
     } catch (error) {
       console.error(error);
@@ -61,7 +61,7 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
 
   return (
     <div className="relative w-full h-full bg-slate-100 overflow-hidden rounded-xl border shadow-inner">
-      <MapInner 
+      <MapInner
         listings={listings}
         center={mapCenter}
         currentLocation={currentLatitude && currentLongitude ? { lat: currentLatitude, lng: currentLongitude } : null}
@@ -71,14 +71,14 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
 
       {/* Floating Controls Overlay */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-[1000]">
-         {currentLatitude && currentLongitude && (
-            <button 
-              onClick={recenterToUser}
-              className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-lg border border-slate-200 text-primary hover:bg-slate-50 transition-all pointer-events-auto"
-            >
-               <Navigation className="h-5 w-5" />
-            </button>
-         )}
+        {currentLatitude && currentLongitude && (
+          <button
+            onClick={recenterToUser}
+            className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-lg border border-slate-200 text-primary hover:bg-slate-50 transition-all pointer-events-auto"
+          >
+            <Navigation className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Slide-up Sheet */}

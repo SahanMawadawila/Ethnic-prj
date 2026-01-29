@@ -55,9 +55,10 @@ export default function CollectorDashboard() {
         getCollectorJobs(),
       ]);
 
-      setActiveListings(mapData);
-      setMyJobs(jobsData);
+      setActiveListings(mapData as any);
+      setMyJobs(jobsData as any);
     } catch (error) {
+      console.error("loadData error:", error);
       toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
@@ -84,7 +85,7 @@ export default function CollectorDashboard() {
       },
       (error) => {
         let errorMsg = "Location access denied. Please enable GPS.";
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMsg = "Location permission denied. Please allow access to see nearby scrap.";
@@ -101,19 +102,19 @@ export default function CollectorDashboard() {
           code: error.code,
           message: error.message
         });
-        
+
         setLocationError(errorMsg);
-        
+
         // If we don't have a location, ensure we at least have the default center 
         // set in the map store if it's currently null
         if (!currentLatitude || !currentLongitude) {
-           // Optional: you could set a default city center here if needed
+          // Optional: you could set a default city center here if needed
         }
       },
-      { 
+      {
         enableHighAccuracy: false, // Switching to false can sometimes help with 'POSITION_UNAVAILABLE'
-        maximumAge: 30000, 
-        timeout: 10000 
+        maximumAge: 30000,
+        timeout: 10000
       },
     );
 
@@ -136,9 +137,9 @@ export default function CollectorDashboard() {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((currentLatitude * Math.PI) / 180) *
-        Math.cos((item.latitude * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos((item.latitude * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
 
@@ -146,8 +147,8 @@ export default function CollectorDashboard() {
   });
 
   // --- 4. Actions ---
-  const handleAcceptPickup = async (id: string, eta: number) => {
-    toast.promise(acceptPickup(id, eta), {
+  const handleAcceptPickup = async (id: string, pickupTimeISO: string) => {
+    toast.promise(acceptPickup(id, pickupTimeISO), {
       loading: "Accepting job...",
       success: () => {
         loadData(); // Refresh all lists
@@ -271,9 +272,7 @@ export default function CollectorDashboard() {
             <div className="absolute inset-0">
               <MapView
                 listings={mapDisplayItems}
-                // We pass the function to "accept" that wraps our Server Action
-                // Note: MapView expects (id, eta) -> void
-                onAcceptPickup={(id, eta) => handleAcceptPickup(id, eta)}
+                onAcceptPickup={(id, pickupTimeISO) => handleAcceptPickup(id, pickupTimeISO)}
               />
             </div>
             {/* Map Overlay Controls */}
@@ -426,6 +425,19 @@ function JobCard({
             <p className="text-slate-500 text-sm mb-4 line-clamp-2">
               {job.address}
             </p>
+
+            {/* Seller Contact Info */}
+            {(job as any).seller && (
+              <div className="bg-blue-50 p-2 rounded border border-blue-100 mb-3">
+                <p className="text-xs font-medium text-blue-900">Seller Contact</p>
+                <p className="text-sm text-blue-800 font-medium">{(job as any).seller.fullName}</p>
+                {(job as any).seller.phone && (
+                  <p className="text-xs text-blue-700">
+                    📞 <a href={`tel:${(job as any).seller.phone}`} className="underline">{(job as any).seller.phone}</a>
+                  </p>
+                )}
+              </div>
+            )}
 
             {job.pickupTime && (
               <div className="inline-flex items-center gap-2 text-xs font-medium bg-blue-50 text-blue-700 px-2 py-1 rounded">

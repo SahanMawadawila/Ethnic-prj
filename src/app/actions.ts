@@ -10,12 +10,22 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 // --- 1. FETCHING ACTIONS ---
 
-// Get ALL Active Items (For Map)
+// Get ALL Active Items (For Map) - includes seller contact info for collectors
 export async function getScrapItems() {
   try {
     const items = await prisma.scrapItem.findMany({
       where: { status: 'ACTIVE' },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true
+          }
+        }
+      }
     })
     return items
   } catch (error) {
@@ -24,7 +34,7 @@ export async function getScrapItems() {
   }
 }
 
-// Get SELLER'S Items (My Listings)
+// Get SELLER'S Items (My Listings) - includes collector info when reserved
 export async function getMyListings() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,14 +43,24 @@ export async function getMyListings() {
   try {
     return await prisma.scrapItem.findMany({
       where: { sellerId: user.id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        collector: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true
+          }
+        }
+      }
     })
   } catch (error) {
     return []
   }
 }
 
-// Get COLLECTOR'S Jobs (My Jobs)
+// Get COLLECTOR'S Jobs (My Jobs) - includes seller contact info
 export async function getCollectorJobs() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,7 +69,17 @@ export async function getCollectorJobs() {
   try {
     return await prisma.scrapItem.findMany({
       where: { collectorId: user.id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true
+          }
+        }
+      }
     })
   } catch (error) {
     return []
@@ -87,15 +117,14 @@ export async function createScrapItem(formData: FormData) {
   }
 }
 
-// COLLECTOR: Accept Pickup with ETA
-export async function acceptPickup(itemId: string, etaMinutes: number) {
+// COLLECTOR: Accept Pickup with selected time
+export async function acceptPickup(itemId: string, pickupTimeISO: string) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Unauthorized")
 
-    // Calculate actual pickup time based on ETA minutes
-    const pickupTime = new Date(Date.now() + etaMinutes * 60000);
+    const pickupTime = new Date(pickupTimeISO);
 
     await prisma.scrapItem.update({
       where: { id: itemId },
@@ -147,5 +176,34 @@ export async function disputePickup(itemId: string) {
     return { success: true }
   } catch (error) {
     return { success: false }
+  }
+}
+
+// SELLER: Delete Scrap Item
+export async function deleteScrapItem(itemId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Unauthorized")
+
+    // Verify ownership before deleting
+    const item = await prisma.scrapItem.findUnique({
+      where: { id: itemId }
+    })
+
+    if (!item || item.sellerId !== user.id) {
+      return { success: false, error: "Item not found or unauthorized" }
+    }
+
+    await prisma.scrapItem.delete({
+      where: { id: itemId }
+    })
+
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error) {
+    console.error(error)
+    return { success: false, error: "Failed to delete" }
   }
 }

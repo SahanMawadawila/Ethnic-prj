@@ -28,24 +28,31 @@ interface MapInnerProps {
 function MapController({ center }: { center: { lat: number; lng: number } }) {
   const map = useMap();
   useEffect(() => {
-    map.setView([center.lat, center.lng]);
+    // Only update if map is ready
+    if (map && center.lat && center.lng) {
+      try {
+        map.setView([center.lat, center.lng], map.getZoom(), { animate: false });
+      } catch (e) {
+        console.error("Map setView error:", e);
+      }
+    }
   }, [center, map]);
   return null;
 }
 
-export default function MapInner({ 
-  listings, 
-  center, 
-  currentLocation, 
+export default function MapInner({
+  listings,
+  center,
+  currentLocation,
   onMarkerClick,
-  selectedListing 
+  selectedListing
 }: MapInnerProps) {
-  
+
   // Custom icon for listings using Lucide
   const createListingIcon = (wasteType: string) => {
     const config = WASTE_TYPE_CONFIG[wasteType as keyof typeof WASTE_TYPE_CONFIG];
     const colorClass = config?.color || "text-primary";
-    
+
     const html = renderToStaticMarkup(
       <div className={`p-1.5 rounded-full border-2 border-white shadow-md bg-white ${colorClass}`}>
         <MapPin className="h-4 w-4" />
@@ -85,13 +92,13 @@ export default function MapInner({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      
+
       <MapController center={center} />
 
       {/* User Location Marker */}
       {currentLocation && (
-        <Marker 
-          position={[currentLocation.lat, currentLocation.lng]} 
+        <Marker
+          position={[currentLocation.lat, currentLocation.lng]}
           icon={userLocationIcon}
         />
       )}

@@ -76,12 +76,7 @@ export default function LoginPage() {
         }
       } else {
         toast.success("Welcome back!");
-        // REDIRECT BASED ON ROLE
-        if (profile?.role === "COLLECTOR") {
-          router.push("/collector/dashboard");
-        } else {
-          router.push("/seller/dashboard");
-        }
+        // NOTE: signIn already handles role-based redirect, don't redirect here
       }
     } catch (error) {
       toast.error("An unexpected error occurred.");

@@ -23,6 +23,7 @@ interface AuthContextType {
     email: string,
     password: string,
     fullName: string,
+    phone: string,
     role: UserRole,
   ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     fullName: string,
+    phone: string,
     role: UserRole,
   ) => {
     const { error } = await supabase.auth.signUp({
@@ -111,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           full_name: fullName,
+          phone: phone,
           role: role,
         },
       },
@@ -129,13 +132,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 1. Fetch the profile immediately to check the role
       const userProfile = await fetchProfile(data.user.id);
 
+      console.log("=== SignIn Debug ===");
+      console.log("User ID:", data.user.id);
+      console.log("Profile fetched:", userProfile);
+      console.log("Profile role:", userProfile?.role);
+
       // 2. Redirect based on Role
       if (userProfile) {
         if (userProfile.role === "COLLECTOR") {
+          console.log("Redirecting to collector dashboard");
           router.push("/collector/dashboard");
         } else {
+          console.log("Redirecting to seller dashboard");
           router.push("/seller/dashboard");
         }
+        router.refresh();
+      } else {
+        console.log("No profile found, redirecting to seller dashboard as default");
+        router.push("/seller/dashboard");
         router.refresh();
       }
     }

@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 
 const signupSchema = z.object({
   fullName: z.string().min(2).max(100),
+  phone: z.string().min(10).max(15).regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(["SELLER", "COLLECTOR"]),
@@ -62,7 +63,7 @@ export default function SignupPage() {
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: "", email: "", password: "", role: defaultRole },
+    defaultValues: { fullName: "", phone: "", email: "", password: "", role: defaultRole },
   });
 
   const selectedRole = form.watch("role");
@@ -74,6 +75,7 @@ export default function SignupPage() {
         data.email,
         data.password,
         data.fullName,
+        data.phone,
         data.role as UserRole,
       );
       if (error) {
@@ -175,6 +177,19 @@ export default function SignupPage() {
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
                       <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+94 77 123 4567" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
