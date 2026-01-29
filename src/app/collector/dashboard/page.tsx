@@ -86,8 +86,25 @@ export default function CollectorDashboard() {
         // updateLocation(latitude, longitude);
       },
       (error) => {
-        console.error("Geo Error:", error);
-        setLocationError("Location access denied. Please enable GPS.");
+        console.error("Geo Error:", {
+          code: error.code,
+          message: error.message,
+        });
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError("Location access denied. Please enable GPS.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError("Location information is unavailable.");
+            break;
+          case error.TIMEOUT:
+            setLocationError("Location request timed out.");
+            break;
+          default:
+            setLocationError("An unknown location error occurred.");
+            break;
+        }
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 },
     );
