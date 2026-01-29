@@ -47,15 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const mapProfile = (data: any): Profile => {
     return {
-      id: data.id,
-      email: data.email,
-      fullName: data.full_name ?? data.fullName ?? null,
-      role: data.role,
-      phone: data.phone ?? null,
-      avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
-      vehicleType: data.vehicle_type ?? data.vehicleType ?? null,
-      plateNumber: data.license_plate ?? data.plateNumber ?? null,
-      operatingRadius: data.operating_radius ?? data.operatingRadius ?? null,
+      ...data,
+      fullName: data.full_name ?? data.fullName,
+      avatarUrl: data.avatar_url ?? data.avatarUrl,
+      vehicleType: data.vehicle_type ?? data.vehicleType,
+      licensePlate: data.license_plate ?? data.licensePlate,
+      operatingRadius: data.operating_radius ?? data.operatingRadius,
       createdAt: data.created_at ?? data.createdAt,
       updatedAt: data.updated_at ?? data.updatedAt,
     };
@@ -69,9 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (!error && data) {
-      const mapped = mapProfile(data);
-      setProfile(mapped);
-      return mapped;
+      const mappedProfile = mapProfile(data);
+      setProfile(mappedProfile);
+      return mappedProfile;
     }
     return null;
   };
@@ -177,21 +174,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return { error: new Error("Not authenticated") };
 
     // Map camelCase to snake_case for Supabase
-    const dbUpdates: any = {};
-    if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
-    if (updates.avatarUrl !== undefined)
-      dbUpdates.avatar_url = updates.avatarUrl;
-    if (updates.vehicleType !== undefined)
-      dbUpdates.vehicle_type = updates.vehicleType;
-    if (updates.plateNumber !== undefined)
-      dbUpdates.license_plate = updates.plateNumber;
-    if (updates.operatingRadius !== undefined)
-      dbUpdates.operating_radius = updates.operatingRadius;
-    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    const supabaseUpdates: any = { ...updates };
+    if (updates.fullName) {
+      supabaseUpdates.full_name = updates.fullName;
+      delete (supabaseUpdates as any).fullName;
+    }
+    if (updates.avatarUrl) {
+      supabaseUpdates.avatar_url = updates.avatarUrl;
+      delete (supabaseUpdates as any).avatarUrl;
+    }
+    if (updates.vehicleType) {
+      supabaseUpdates.vehicle_type = updates.vehicleType;
+      delete (supabaseUpdates as any).vehicleType;
+    }
+    if (updates.licensePlate) {
+      supabaseUpdates.license_plate = updates.licensePlate;
+      delete (supabaseUpdates as any).licensePlate;
+    }
+    if (updates.operatingRadius) {
+      supabaseUpdates.operating_radius = updates.operatingRadius;
+      delete (supabaseUpdates as any).operatingRadius;
+    }
 
     const { error } = await supabase
       .from("profiles")
-      .update(dbUpdates)
+      .update(supabaseUpdates)
       .eq("id", user.id);
 
     if (!error) {
