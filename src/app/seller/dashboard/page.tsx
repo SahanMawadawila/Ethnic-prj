@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   getMyListings,
   disputePickup,
-  markAsCollected,
+  deleteScrapItem,
 } from "@/app/actions";
 import { ScrapItem } from "@/types";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -18,13 +18,12 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2,
-  Plus,
+  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
-import Link from "next/link";
-import Image from "next/image";
 import { toast } from "sonner";
 import { CreateListingDialog } from "@/components/listings/CreateListingDialog";
+import { EditListingDialog } from "@/components/listings/EditListingDialog";
 import { Calendar } from "lucide-react";
 
 export default function SellerDashboard() {
@@ -38,9 +37,23 @@ export default function SellerDashboard() {
 
   async function loadData() {
     const data = await getMyListings();
-    setListings(data);
+    setListings(data as any);
     setLoading(false);
   }
+
+  // Handle Delete
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to unlist this item?")) return;
+    
+    toast.promise(deleteScrapItem(id), {
+      loading: "Unlisting...",
+      success: () => {
+        loadData();
+        return "Item unlisted successfully.";
+      },
+      error: "Failed to delete.",
+    });
+  };
 
   // Handle Dispute
   const handleDispute = async (id: string) => {
@@ -114,17 +127,23 @@ export default function SellerDashboard() {
           ) : (
             <>
               <TabsContent value="active" className="mt-6">
-                <ListingGrid items={active} type="ACTIVE" />
+                <ListingGrid 
+                  items={active} 
+                  type="ACTIVE" 
+                  onDelete={handleDelete} 
+                  onRefresh={loadData} 
+                />
               </TabsContent>
               <TabsContent value="reserved" className="mt-6">
                 <ListingGrid
                   items={reserved}
                   type="RESERVED"
                   onDispute={handleDispute}
+                  onRefresh={loadData}
                 />
               </TabsContent>
               <TabsContent value="history" className="mt-6">
-                <ListingGrid items={collected} type="COLLECTED" />
+                <ListingGrid items={collected} type="COLLECTED" onRefresh={loadData} />
               </TabsContent>
             </>
           )}
@@ -145,7 +164,7 @@ function StatCard({ icon: Icon, label, value, color, bg }: any) {
         </div>
         <div>
           <div className="text-3xl font-bold tracking-tight">{value}</div>
-          <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+          <div className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
             {label}
           </div>
         </div>
@@ -154,12 +173,12 @@ function StatCard({ icon: Icon, label, value, color, bg }: any) {
   );
 }
 
-function ListingGrid({ items, type, onDispute }: any) {
+function ListingGrid({ items, type, onDispute, onDelete, onRefresh }: any) {
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 border-2 border-dashed rounded-lg">
-        <Package className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-        <p className="text-muted-foreground">No listings found.</p>
+      <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-white/50 border-slate-200">
+        <Package className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+        <p className="text-slate-500 font-medium">No listings found in this category.</p>
       </div>
     );
   }
@@ -169,67 +188,86 @@ function ListingGrid({ items, type, onDispute }: any) {
       {items.map((item: any) => (
         <Card
           key={item.id}
-          className="overflow-hidden hover:shadow-lg transition-all"
+          className="overflow-hidden hover:shadow-xl transition-all border-none bg-white/80 backdrop-blur-sm shadow-sm flex flex-col group"
         >
-          <div className="relative aspect-video bg-muted">
+          <div className="relative aspect-video bg-muted overflow-hidden">
             {item.imageUrl ? (
-              <Image
+              <img
                 src={item.imageUrl}
                 alt={item.title}
-                fill
-                className="object-cover"
+                className="object-cover w-full h-full transition-transform group-hover:scale-105"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                No Image
+              <div className="flex h-full items-center justify-center text-slate-300">
+                <Package className="h-8 w-8 opacity-20" />
               </div>
             )}
-            <Badge className="absolute top-2 right-2">{item.wasteType}</Badge>
+            <Badge className="absolute top-3 right-3 bg-white/90 text-slate-900 border-none hover:bg-white shadow-sm font-bold text-[10px] tracking-wider uppercase">
+              {item.wasteType}
+            </Badge>
           </div>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg line-clamp-1">{item.title}</CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {item.estimatedWeight} kg • {item.address}
+            <CardTitle className="text-lg font-bold text-slate-800 line-clamp-1 group-hover:text-primary transition-colors">
+              {item.title}
+            </CardTitle>
+            <div className="text-xs text-slate-500 font-medium flex items-center gap-1">
+              <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-bold">{item.estimatedWeight} kg</span>
+              <span className="opacity-30">•</span>
+              <span className="line-clamp-1">{item.address}</span>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {type === "RESERVED" && (
-              <div className="space-y-3">
-                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      <Calendar className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Scheduled For</p>
-                      <p className="text-sm font-bold text-slate-700">
-                        {item.pickupTime ? format(new Date(item.pickupTime), "MMM do, h:mm a") : "TBD"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] font-medium text-primary bg-primary/10 w-fit px-2 py-0.5 rounded-full">
-                    <Clock className="h-3 w-3" />
-                    {item.pickupTime ? formatDistanceToNow(new Date(item.pickupTime), { addSuffix: true }) : "Calculating..."}
-                  </div>
+              <div className="space-y-3 pt-2">
+                <div className="bg-orange-50/50 border border-orange-100 text-orange-700 text-[11px] font-semibold p-2.5 rounded-xl flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5" />
+                  Pickup: {item.pickupTime ? format(new Date(item.pickupTime), "MMM d, h:mm a") : "Scheduled Soon"}
                 </div>
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="sm"
-                  className="w-full"
+                  className="w-full text-xs text-orange-600 hover:bg-orange-50 hover:text-orange-700 rounded-lg h-9 font-bold"
                   onClick={() => onDispute(item.id)}
                 >
-                  <AlertTriangle className="h-3 w-3 mr-2" /> Report Issue
+                  <AlertTriangle className="h-3.5 w-3.5 mr-2" /> Report Issue
                 </Button>
               </div>
             )}
             {type === "ACTIVE" && (
-              <div className="text-xs text-muted-foreground italic">
-                Waiting for collector...
+              <div className="space-y-3 pt-2">
+                <div className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg w-fit flex items-center gap-1.5 grayscale opacity-60">
+                   <Loader2 className="h-3 w-3 animate-spin" /> Waiting for collector
+                </div>
+                <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <EditListingDialog item={item} onSuccess={onRefresh} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-2 rounded-lg h-9 border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                    onClick={() => onDelete(item.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Unlist
+                  </Button>
+                </div>
               </div>
             )}
             {type === "COLLECTED" && (
-              <div className="text-xs text-green-600 font-medium flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" /> Transaction Complete
+              <div className="pt-2 space-y-3">
+                <div className="text-xs text-green-600 bg-green-50 px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 border border-green-100">
+                  <CheckCircle className="h-3.5 w-3.5" /> Collection Completed
+                </div>
+                {item.totalAmount && (
+                  <div className="bg-slate-900 rounded-xl p-3 text-white flex justify-between items-center">
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total Earned</p>
+                      <p className="text-lg font-black">${item.totalAmount.toFixed(2)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Unit Price</p>
+                      <p className="text-xs font-bold text-white">${item.unitPrice?.toFixed(2)}/kg</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

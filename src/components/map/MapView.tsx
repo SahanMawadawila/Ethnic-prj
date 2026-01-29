@@ -17,7 +17,7 @@ const MapInner = dynamic(() => import("./MapInner"), {
 
 interface MapViewProps {
   listings: ScrapItem[];
-  onAcceptPickup: (id: string, eta: number) => Promise<void>;
+  onAcceptPickup: (id: string, time: Date) => Promise<void>;
 }
 
 export function MapView({ listings, onAcceptPickup }: MapViewProps) {
@@ -29,12 +29,12 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
     setSelectedListing(listing);
   };
 
-  const handleAccept = async (etaMinutes: number) => {
+  const handleAccept = async (time: Date) => {
     if (!selectedListing) return;
 
     setIsUpdating(true);
     try {
-      await onAcceptPickup(selectedListing.id, etaMinutes);
+      await onAcceptPickup(selectedListing.id, time);
       setSelectedListing(null);
     } catch (error) {
       console.error(error);

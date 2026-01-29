@@ -165,7 +165,8 @@ export function CreateListingDialog({ onSuccess }: CreateListingDialogProps) {
                 id="estimatedWeight"
                 name="estimatedWeight"
                 type="number"
-                placeholder="1"
+                step="0.1"
+                placeholder="1.0"
                 required
                 className={inputClasses}
               />
