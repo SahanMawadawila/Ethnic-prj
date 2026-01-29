@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -35,7 +35,9 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+
+
+function LoginForm() {
   const { signIn, user, profile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,20 +69,28 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      const { error } = await signIn(data.email, data.password);
+      const { error, profile: userProfile } = await signIn(
+        data.email,
+        data.password,
+      );
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           toast.error("Invalid email or password.");
         } else {
           toast.error(error.message);
         }
-      } else {
+      } else if (userProfile) {
         toast.success("Welcome back!");
-        // REDIRECT BASED ON ROLE
-        if (profile?.role === "COLLECTOR") {
-          router.push("/collector/dashboard");
+        // REDIRECT BASED ON ROLE IMMEDIATELY
+        const redirectPath =
+          userProfile.role === "COLLECTOR"
+            ? "/collector/dashboard"
+            : "/seller/dashboard";
+
+        if (from !== "/") {
+          router.push(from);
         } else {
-          router.push("/seller/dashboard");
+          router.push(redirectPath);
         }
       }
     } catch (error) {
@@ -178,3 +188,18 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+

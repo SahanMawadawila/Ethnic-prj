@@ -40,7 +40,7 @@ export function ProtectedRoute({
       // 3. Collector Incomplete Profile
       if (
         profile?.role === "COLLECTOR" &&
-        !profile.vehicle_type &&
+        !profile.vehicleType &&
         pathname !== "/onboarding"
       ) {
         router.replace("/onboarding");
