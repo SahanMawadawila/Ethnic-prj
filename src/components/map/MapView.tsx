@@ -1,9 +1,21 @@
-import { useState, useCallback } from "react";
-import { ScrapItem, WASTE_TYPE_CONFIG } from "@/types";
+"use client";
+
+import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
+import { ScrapItem } from "@/types";
 import { ListingSheet } from "./ListingSheet";
-import { MapPin, Navigation } from "lucide-react";
-import { Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps";
+import { Navigation } from "lucide-react";
 import { useMapStore } from "@/store/mapStore";
+
+// Dynamically import Leaflet component to avoid SSR issues
+const MapInner = dynamic(() => import("./MapInner"), { 
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center">
+      <p className="text-slate-400">Loading map...</p>
+    </div>
+  )
+});
 
 interface MapViewProps {
   listings: ScrapItem[];
@@ -13,15 +25,18 @@ interface MapViewProps {
 export function MapView({ listings, onAcceptPickup }: MapViewProps) {
   const [selectedListing, setSelectedListing] = useState<ScrapItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-  const map = useMap();
   
   const { currentLatitude, currentLongitude } = useMapStore();
 
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(() => {
+    return currentLatitude && currentLongitude 
+      ? { lat: currentLatitude, lng: currentLongitude }
+      : { lat: 20.5937, lng: 78.9629 };
+  });
+
   const handleMarkerClick = (listing: ScrapItem) => {
     setSelectedListing(listing);
-    if (map) {
-      map.panTo({ lat: listing.latitude, lng: listing.longitude });
-    }
+    setMapCenter({ lat: listing.latitude, lng: listing.longitude });
   };
 
   const handleAccept = async (etaMinutes: number) => {
@@ -38,52 +53,28 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
     }
   };
 
-  const center = currentLatitude && currentLongitude 
-    ? { lat: currentLatitude, lng: currentLongitude }
-    : { lat: 20.5937, lng: 78.9629 }; // Default to India center if no location
+  const recenterToUser = () => {
+    if (currentLatitude && currentLongitude) {
+      setMapCenter({ lat: currentLatitude, lng: currentLongitude });
+    }
+  };
 
   return (
     <div className="relative w-full h-full bg-slate-100 overflow-hidden rounded-xl border shadow-inner">
-      <Map
-        defaultCenter={center}
-        defaultZoom={13}
-        mapId="SCRAP_SYNC_MAP" // In real apps, set this in Google Cloud Console
-        disableDefaultUI={true}
-        className="w-full h-full"
-      >
-        {/* User Location Marker */}
-        {currentLatitude && currentLongitude && (
-          <AdvancedMarker
-            position={{ lat: currentLatitude, lng: currentLongitude }}
-            title="Your Location"
-          >
-            <div className="relative flex h-6 w-6 items-center justify-center">
-              <div className="absolute h-full w-full animate-ping rounded-full bg-primary opacity-40"></div>
-              <div className="relative h-3 w-3 rounded-full bg-primary border-2 border-white"></div>
-            </div>
-          </AdvancedMarker>
-        )}
-
-        {/* Listing Markers */}
-        {listings.map((listing) => (
-          <AdvancedMarker
-            key={listing.id}
-            position={{ lat: listing.latitude, lng: listing.longitude }}
-            onClick={() => handleMarkerClick(listing)}
-          >
-            <div className={`p-1.5 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110 ${WASTE_TYPE_CONFIG[listing.wasteType].color}`}>
-               <MapPin className="h-4 w-4 text-white" />
-            </div>
-          </AdvancedMarker>
-        ))}
-      </Map>
+      <MapInner 
+        listings={listings}
+        center={mapCenter}
+        currentLocation={currentLatitude && currentLongitude ? { lat: currentLatitude, lng: currentLongitude } : null}
+        onMarkerClick={handleMarkerClick}
+        selectedListing={selectedListing}
+      />
 
       {/* Floating Controls Overlay */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-[1000]">
          {currentLatitude && currentLongitude && (
             <button 
-              onClick={() => map?.panTo({ lat: currentLatitude!, lng: currentLongitude! })}
-              className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-lg border border-slate-200 text-primary hover:bg-slate-50 transition-all"
+              onClick={recenterToUser}
+              className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-lg border border-slate-200 text-primary hover:bg-slate-50 transition-all pointer-events-auto"
             >
                <Navigation className="h-5 w-5" />
             </button>
