@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { ScrapItem, WASTE_TYPE_CONFIG } from "@/types";
 import { MapPin } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";

@@ -1,26 +1,25 @@
 export type UserRole = "SELLER" | "COLLECTOR" | "ADMIN";
 export type WasteType = "PLASTIC" | "METAL" | "PAPER" | "E_WASTE" | "MIXED";
-export type ListingStatus = "ACTIVE" | "RESERVED" | "COLLECTED" | "CANCELLED";
+export type ItemStatus = "ACTIVE" | "RESERVED" | "COLLECTED" | "CANCELLED";
 
 // Matches the Prisma 'Profile' model
 export interface Profile {
   id: string;
   email: string;
-  fullName: string | null; // Changed from full_name
+  fullName: string; 
   role: UserRole;
   phone: string | null;
-  avatarUrl: string | null; // Changed from avatar_url
-  vehicleType: string | null; // Changed from vehicle_type
-  plateNumber: string | null; // Changed from license_plate
-  operatingRadius: number | null; // Changed from operating_radius
+  avatarUrl: string | null;
+  vehicleType: string | null;
+  licensePlate: string | null;
+  operatingRadius: number | null;
 
-  // These might not be returned by Prisma unless you select them specifically,
-  // but good to have optional just in case.
-  currentLatitude?: number | null;
-  currentLongitude?: number | null;
-
-  createdAt: Date | string; // Prisma returns Date objects
+  createdAt: Date | string;
   updatedAt: Date | string;
+  
+  // Relations
+  itemsToSell?: ScrapItem[];
+  itemsToCollect?: ScrapItem[];
 }
 
 // Matches the Prisma 'ScrapItem' model
@@ -28,29 +27,23 @@ export interface ScrapItem {
   id: string;
   title: string;
   description: string | null;
-  wasteType: WasteType; // Changed from waste_type
-  estimatedWeight: number; // Changed from estimated_weight
-  imageUrl: string | null; // Changed from image_url
+  wasteType: WasteType;
+  estimatedWeight: number;
+  imageUrl: string | null;
   address: string;
   latitude: number;
   longitude: number;
-  status: ListingStatus;
+  status: ItemStatus;
 
-  sellerId: string; // Changed from seller_id
-  collectorId: string | null; // Changed from collector_id
+  sellerId: string;
+  collectorId: string | null;
 
-  pickupTime: Date | string | null; // Changed from pickup_time
-  completedAt: Date | string | null; // Changed from completed_at
-
-  // Note: These fields are not in your Prisma schema yet,
-  // but if you want them, we can keep them optional.
-  etaMinutes?: number | null;
-  disputedAt?: Date | string | null;
-
+  pickupTime: Date | string | null;
+  completedAt: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 
-  // Relations (Optional because they aren't always fetched)
+  // Relations
   seller?: Profile;
   collector?: Profile;
 }
@@ -72,7 +65,7 @@ export const WASTE_TYPE_CONFIG: Record<
 };
 
 export const STATUS_CONFIG: Record<
-  ListingStatus,
+  ItemStatus,
   {
     label: string;
     variant: "default" | "secondary" | "destructive" | "outline";
