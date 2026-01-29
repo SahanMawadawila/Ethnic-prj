@@ -47,15 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const mapProfile = (data: any): Profile => {
     return {
-      id: data.id,
-      email: data.email,
-      fullName: data.full_name ?? data.fullName ?? null,
-      role: data.role,
-      phone: data.phone ?? null,
-      avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
-      vehicleType: data.vehicle_type ?? data.vehicleType ?? null,
-      plateNumber: data.license_plate ?? data.plateNumber ?? null,
-      operatingRadius: data.operating_radius ?? data.operatingRadius ?? null,
+      ...data,
+      fullName: data.full_name ?? data.fullName,
+      avatarUrl: data.avatar_url ?? data.avatarUrl,
+      vehicleType: data.vehicle_type ?? data.vehicleType,
+      licensePlate: data.license_plate ?? data.licensePlate,
+      operatingRadius: data.operating_radius ?? data.operatingRadius,
       createdAt: data.created_at ?? data.createdAt,
       updatedAt: data.updated_at ?? data.updatedAt,
     };
@@ -69,20 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (!error && data) {
-      const mappedProfile: Profile = {
-        ...data,
-        fullName: data.full_name,
-        avatarUrl: data.avatar_url,
-        vehicleType: data.vehicle_type,
-        licensePlate: data.license_plate,
-        operatingRadius: data.operating_radius,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
+      const mappedProfile = mapProfile(data);
       setProfile(mappedProfile);
       return mappedProfile;
     }
-    return null;
     return null;
   };
 
