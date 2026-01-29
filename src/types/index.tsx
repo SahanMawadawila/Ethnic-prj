@@ -40,6 +40,9 @@ export interface ScrapItem {
 
   pickupTime: Date | string | null;
   completedAt: Date | string | null;
+  unitPrice: number | null;
+  totalAmount: number | null;
+
   createdAt: Date | string;
   updatedAt: Date | string;
 

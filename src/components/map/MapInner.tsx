@@ -4,8 +4,16 @@ import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ScrapItem, WASTE_TYPE_CONFIG } from "@/types";
-import { MapPin } from "lucide-react";
+import { ScrapItem, WASTE_TYPE_CONFIG, WasteType } from "@/types";
+import { 
+  MapPin, 
+  Package, 
+  Hammer, 
+  FileText, 
+  Cpu, 
+  Trash2,
+  Recycle
+} from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 // Fix for default Leaflet icon issues
@@ -51,12 +59,30 @@ export default function MapInner({
 
   // Custom icon for listings using Lucide
   const createListingIcon = (wasteType: string) => {
-    const config = WASTE_TYPE_CONFIG[wasteType as keyof typeof WASTE_TYPE_CONFIG];
+    const config = WASTE_TYPE_CONFIG[wasteType as WasteType];
     const colorClass = config?.color || "text-primary";
 
+    // Select icon based on waste type
+    const getIcon = () => {
+      switch (wasteType as WasteType) {
+        case "PLASTIC":
+          return <Package className="h-4 w-4" />;
+        case "METAL":
+          return <Hammer className="h-4 w-4" />;
+        case "PAPER":
+          return <FileText className="h-4 w-4" />;
+        case "E_WASTE":
+          return <Cpu className="h-4 w-4" />;
+        case "MIXED":
+          return <Trash2 className="h-4 w-4" />;
+        default:
+          return <Recycle className="h-4 w-4" />;
+      }
+    };
+
     const html = renderToStaticMarkup(
-      <div className={`p-1.5 rounded-full border-2 border-white shadow-md bg-white ${colorClass}`}>
-        <MapPin className="h-4 w-4" />
+      <div className={`p-1.5 rounded-full border-2 border-white shadow-md bg-white ${colorClass} hover:scale-110 transition-transform`}>
+        {getIcon()}
       </div>
     );
 

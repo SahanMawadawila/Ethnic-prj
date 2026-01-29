@@ -49,7 +49,27 @@ export function CreateListingDialog({ onSuccess }: CreateListingDialogProps) {
         setLongitude(pos.coords.longitude.toFixed(6));
         toast.success("Location acquired!");
       },
-      () => toast.error("Could not get location. Please enable GPS.")
+      (error) => {
+        console.error("Geo Error:", {
+          code: error.code,
+          message: error.message,
+        });
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Location access denied. Please enable GPS.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Location information is unavailable.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Location request timed out.");
+            break;
+          default:
+            toast.error("An unknown location error occurred.");
+            break;
+        }
+      }
     );
   }, []);
 
@@ -145,7 +165,8 @@ export function CreateListingDialog({ onSuccess }: CreateListingDialogProps) {
                 id="estimatedWeight"
                 name="estimatedWeight"
                 type="number"
-                placeholder="1"
+                step="0.1"
+                placeholder="1.0"
                 required
                 className={inputClasses}
               />

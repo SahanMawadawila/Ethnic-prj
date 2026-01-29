@@ -6,6 +6,7 @@ import {
   getCollectorJobs,
   acceptPickup,
   markAsCollected,
+  releasePickup,
 } from "@/app/actions";
 import { ScrapItem, WASTE_TYPE_CONFIG } from "@/types";
 import { useMapStore } from "@/store/mapStore";
@@ -20,12 +21,26 @@ import {
   Truck,
   CheckCircle,
   Loader2,
+  RefreshCw,
+  Filter,
+  Package,
+  XCircle,
+  Clock,
   Navigation,
   AlertCircle,
-  RefreshCw,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import Image from "next/image";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { format } from "date-fns";
+import { FinalizeCollectionDialog } from "@/components/map/FinalizeCollectionDialog";
 
 export default function CollectorDashboard() {
   // --- State ---
@@ -33,6 +48,9 @@ export default function CollectorDashboard() {
   const [myJobs, setMyJobs] = useState<ScrapItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [finalizeItem, setFinalizeItem] = useState<ScrapItem | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   // --- Store & Geo ---
   const {
@@ -41,22 +59,23 @@ export default function CollectorDashboard() {
     setCurrentLocation,
     radiusFilterEnabled,
     setRadiusFilterEnabled,
+    customRadius,
+    setCustomRadius,
   } = useMapStore();
 
-  const operatingRadius = 15; // Default radius (km)
+  const operatingRadius = customRadius || 15;
 
   // --- 1. Data Fetching ---
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Parallel fetching for speed
       const [mapData, jobsData] = await Promise.all([
         getScrapItems(),
         getCollectorJobs(),
       ]);
 
-      setActiveListings(mapData);
-      setMyJobs(jobsData);
+      setActiveListings(mapData as any);
+      setMyJobs(jobsData as any);
     } catch (error) {
       toast.error("Failed to load dashboard data");
     } finally {
@@ -64,7 +83,6 @@ export default function CollectorDashboard() {
     }
   }, []);
 
-  // Initial Load
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -81,13 +99,23 @@ export default function CollectorDashboard() {
         const { latitude, longitude } = position.coords;
         setCurrentLocation(latitude, longitude);
         setLocationError(null);
-
-        // Optional: Update server with my live location for sellers to see
-        // updateLocation(latitude, longitude);
       },
       (error) => {
         console.error("Geo Error:", error);
-        setLocationError("Location access denied. Please enable GPS.");
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError("Location access denied. Please enable GPS.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError("Location information is unavailable.");
+            break;
+          case error.TIMEOUT:
+            setLocationError("Location request timed out.");
+            break;
+          default:
+            setLocationError("An unknown location error occurred.");
+            break;
+        }
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 },
     );
@@ -99,13 +127,15 @@ export default function CollectorDashboard() {
   const reservedJobs = myJobs.filter((j) => j.status === "RESERVED");
   const completedJobs = myJobs.filter((j) => j.status === "COLLECTED");
 
-  // Filter map items by radius (if enabled and we have location)
   const mapDisplayItems = activeListings.filter((item) => {
+    if (selectedTypes.length > 0 && !selectedTypes.includes(item.wasteType)) {
+      return false;
+    }
+
     if (!radiusFilterEnabled || !currentLatitude || !currentLongitude)
       return true;
 
-    // Haversine Distance Calculation
-    const R = 6371; // km
+    const R = 6371;
     const dLat = ((item.latitude - currentLatitude) * Math.PI) / 180;
     const dLon = ((item.longitude - currentLongitude) * Math.PI) / 180;
     const a =
@@ -120,26 +150,50 @@ export default function CollectorDashboard() {
     return distance <= operatingRadius;
   });
 
+  const toggleType = (type: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  };
+
   // --- 4. Actions ---
-  const handleAcceptPickup = async (id: string, eta: number) => {
-    toast.promise(acceptPickup(id, eta), {
-      loading: "Accepting job...",
+  const handleAcceptPickup = async (id: string, time: Date) => {
+    toast.promise(acceptPickup(id, time), {
+      loading: "Scheduling pickup...",
       success: () => {
-        loadData(); // Refresh all lists
-        return "Job Accepted! Navigate to the location.";
+        loadData();
+        return "Pickup Scheduled! Ready for collection.";
       },
-      error: "Failed to accept job.",
+      error: "Failed to schedule pickup.",
     });
   };
 
-  const handleMarkCollected = async (id: string) => {
-    toast.promise(markAsCollected(id), {
+  const handleReleasePickup = async (id: string) => {
+    if (!confirm("Are you sure you want to release this job? It will be available for others again.")) return;
+    
+    toast.promise(releasePickup(id), {
+      loading: "Releasing job...",
+      success: () => {
+        loadData();
+        return "Job released successfully.";
+      },
+      error: "Failed to release job.",
+    });
+  };
+
+  const handleMarkCollected = async (unitPrice: number, totalAmount: number) => {
+    if (!finalizeItem) return;
+    
+    setIsFinalizing(true);
+    toast.promise(markAsCollected(finalizeItem.id, unitPrice, totalAmount), {
       loading: "Finalizing...",
       success: () => {
         loadData();
+        setFinalizeItem(null);
         return "Collection Recorded!";
       },
       error: "Error updating status.",
+      finally: () => setIsFinalizing(false)
     });
   };
 
@@ -150,21 +204,21 @@ export default function CollectorDashboard() {
         <div className="border-b bg-card p-4 shadow-sm z-10">
           <div className="container mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
+              <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-800">
                 <Truck className="h-6 w-6 text-primary" /> Collector Dashboard
               </h1>
               <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                 {currentLatitude ? (
-                  <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
                     <Navigation className="h-3 w-3" /> GPS Active
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded-full font-medium">
                     <Loader2 className="h-3 w-3 animate-spin" /> Locating...
                   </span>
                 )}
                 {locationError && (
-                  <span className="flex items-center gap-1 text-destructive font-medium">
+                  <span className="flex items-center gap-1 text-destructive font-bold">
                     <AlertCircle className="h-3 w-3" /> {locationError}
                   </span>
                 )}
@@ -173,68 +227,45 @@ export default function CollectorDashboard() {
 
             {/* Quick Stats */}
             <div className="flex gap-4">
-              <StatBadge
-                icon={MapPin}
-                label="Map"
-                value={mapDisplayItems.length}
-              />
-              <StatBadge
-                icon={Truck}
-                label="Jobs"
-                value={reservedJobs.length}
-                active
-              />
-              <StatBadge
-                icon={CheckCircle}
-                label="Done"
-                value={completedJobs.length}
-              />
+              <StatBadge icon={MapPin} label="Map" value={mapDisplayItems.length} />
+              <StatBadge icon={Truck} label="Jobs" value={reservedJobs.length} active />
+              <StatBadge icon={CheckCircle} label="Done" value={completedJobs.length} />
             </div>
           </div>
         </div>
 
         {/* --- Main Tabs --- */}
-        <Tabs
-          defaultValue="map"
-          className="flex flex-1 flex-col overflow-hidden"
-        >
+        <Tabs defaultValue="map" className="flex flex-1 flex-col overflow-hidden">
           <div className="border-b bg-background">
             <div className="container mx-auto">
-              <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0">
+              <TabsList className="h-14 w-full justify-start rounded-none bg-transparent p-0">
                 <TabsTrigger
                   value="map"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6"
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none px-6 font-bold h-full"
                 >
                   <MapPin className="h-4 w-4 mr-2" /> Live Map
                 </TabsTrigger>
                 <TabsTrigger
                   value="jobs"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6"
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none px-6 font-bold h-full"
                 >
                   <Truck className="h-4 w-4 mr-2" /> My Jobs
                   {reservedJobs.length > 0 && (
-                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                    <Badge className="ml-2 h-5 min-w-[20px] rounded-full p-0 flex items-center justify-center bg-primary text-white text-[10px]">
                       {reservedJobs.length}
                     </Badge>
                   )}
                 </TabsTrigger>
                 <TabsTrigger
                   value="history"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6"
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none px-6 font-bold h-full"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" /> History
                 </TabsTrigger>
 
                 <div className="ml-auto pr-4 flex items-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={loadData}
-                    disabled={loading}
-                  >
-                    <RefreshCw
-                      className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                    />
+                  <Button variant="ghost" size="sm" onClick={loadData} disabled={loading} className="rounded-full">
+                    <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                   </Button>
                 </div>
               </TabsList>
@@ -244,77 +275,117 @@ export default function CollectorDashboard() {
           {/* TAB 1: MAP VIEW */}
           <TabsContent value="map" className="mt-0 flex-1 relative">
             <div className="absolute inset-0">
-              <MapView
-                listings={mapDisplayItems}
-                // We pass the function to "accept" that wraps our Server Action
-                // Note: MapView expects (id, eta) -> void
-                onAcceptPickup={(id, eta) => handleAcceptPickup(id, eta)}
-              />
+              <MapView listings={mapDisplayItems} onAcceptPickup={handleAcceptPickup} />
             </div>
-            {/* Map Overlay Controls */}
-            <div className="absolute top-4 right-4 z-10 bg-white/90 p-2 rounded-lg shadow-md backdrop-blur-sm">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={radiusFilterEnabled}
-                  onChange={(e) => setRadiusFilterEnabled(e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span>Limit to {operatingRadius}km</span>
-              </label>
+            
+            <div className="absolute top-4 right-4 z-10">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full shadow-lg backdrop-blur-sm bg-white/90">
+                    <Filter className="h-5 w-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 rounded-3xl p-5 shadow-2xl border-none bg-white/95 backdrop-blur-md" align="end" sideOffset={8}>
+                  <div className="space-y-6">
+                    {/* ... filters ... */}
+                     <div className="flex items-center gap-2 border-b pb-3">
+                      <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                        <Filter className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-base leading-none">Map Filters</h4>
+                        <p className="text-[12px] text-muted-foreground mt-1">Refine your search results</p>
+                      </div>
+                    </div>
+                    <div className="space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="radius-filter" className="flex flex-col gap-0.5 cursor-pointer">
+                            <span className="font-semibold text-sm">Proximity Filter</span>
+                            <span className="text-[11px] font-normal text-muted-foreground">Show items near you</span>
+                          </Label>
+                          <Switch id="radius-filter" checked={radiusFilterEnabled} onCheckedChange={setRadiusFilterEnabled} />
+                        </div>
+                        {radiusFilterEnabled && (
+                          <div className="space-y-4 rounded-2xl bg-slate-50 p-3.5 border border-slate-100">
+                            <div className="flex justify-between items-end">
+                              <span className="text-[12px] text-muted-foreground font-medium uppercase tracking-wider">Search Distance</span>
+                              <span className="font-bold text-lg text-primary leading-none">{operatingRadius}<span className="text-xs ml-1 text-primary/70">km</span></span>
+                            </div>
+                            <Slider defaultValue={[operatingRadius]} max={50} min={1} step={1} onValueChange={(vals) => setCustomRadius(vals[0])} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold flex items-center gap-2 text-slate-700">
+                          <Package className="h-4 w-4 text-slate-400" /> Waste Categories
+                        </Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(WASTE_TYPE_CONFIG).map(([type, config]) => {
+                            const isSelected = selectedTypes.includes(type);
+                            return (
+                              <button
+                                key={type}
+                                onClick={() => toggleType(type)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                                  isSelected 
+                                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.02]" 
+                                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-100"
+                                }`}
+                              >
+                                {config.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </TabsContent>
 
           {/* TAB 2: ACTIVE JOBS */}
-          <TabsContent
-            value="jobs"
-            className="mt-0 flex-1 overflow-y-auto bg-slate-50 p-4"
-          >
+          <TabsContent value="jobs" className="mt-0 flex-1 overflow-y-auto bg-slate-50 p-4">
             <div className="container mx-auto max-w-4xl space-y-4">
-              {loading && (
-                <div className="text-center py-10">
-                  <Loader2 className="animate-spin h-8 w-8 mx-auto text-primary" />
-                </div>
-              )}
-
               {!loading && reservedJobs.length === 0 && (
-                <EmptyState
-                  icon={Truck}
-                  title="No Active Jobs"
-                  desc="Go to the Map tab to find and accept new pickups nearby."
-                />
+                <EmptyState icon={Truck} title="No Active Jobs" desc="Go to the Map tab to find and accept new pickups nearby." />
               )}
-
-              {reservedJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onComplete={handleMarkCollected}
-                />
-              ))}
+              <div className="grid gap-6">
+                {reservedJobs.map((job) => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    onComplete={() => setFinalizeItem(job)}
+                    onRelease={handleReleasePickup}
+                    onNavigate={(lat, lng) => window.open(`https://maps.google.com/?q=${lat},${lng}`, "_blank")}
+                  />
+                ))}
+              </div>
             </div>
           </TabsContent>
 
           {/* TAB 3: HISTORY */}
-          <TabsContent
-            value="history"
-            className="mt-0 flex-1 overflow-y-auto bg-slate-50 p-4"
-          >
-            <div className="container mx-auto max-w-4xl space-y-4">
-              {!loading && completedJobs.length === 0 && (
-                <EmptyState
-                  icon={CheckCircle}
-                  title="No History Yet"
-                  desc="Completed jobs will appear here."
-                />
-              )}
-
-              {completedJobs.map((job) => (
-                <HistoryCard key={job.id} job={job} />
-              ))}
-            </div>
+          <TabsContent value="history" className="mt-0 flex-1 overflow-y-auto bg-slate-50 p-4">
+             <div className="container mx-auto max-w-4xl space-y-4">
+               {!loading && completedJobs.length === 0 && (
+                 <EmptyState icon={CheckCircle} title="No History Yet" desc="Completed jobs will appear here." />
+               )}
+               {completedJobs.map((job) => (
+                 <HistoryCard key={job.id} job={job} />
+               ))}
+             </div>
           </TabsContent>
         </Tabs>
+
+        <FinalizeCollectionDialog 
+          item={finalizeItem}
+          open={!!finalizeItem}
+          onOpenChange={(open) => !open && setFinalizeItem(null)}
+          onConfirm={handleMarkCollected}
+          isLoading={isFinalizing}
+        />
       </div>
     </AppLayout>
   );
@@ -322,107 +393,63 @@ export default function CollectorDashboard() {
 
 // --- Helper Components ---
 
-function StatBadge({ icon: Icon, label, value, active }: any) {
-  return (
-    <div
-      className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${active ? "bg-primary/10 border-primary/20 text-primary" : "bg-background border-border"}`}
-    >
-      <Icon className="h-4 w-4" />
-      <span className="font-bold">{value}</span>
-      <span className="hidden sm:inline text-xs text-muted-foreground uppercase">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, title, desc }: any) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-slate-200 rounded-xl bg-white">
-      <div className="bg-slate-100 p-4 rounded-full mb-4">
-        <Icon className="h-8 w-8 text-slate-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="text-slate-500 max-w-xs">{desc}</p>
-    </div>
-  );
-}
-
-function JobCard({
-  job,
-  onComplete,
-}: {
-  job: ScrapItem;
-  onComplete: (id: string) => void;
+function JobCard({ job, onComplete, onRelease, onNavigate }: { 
+  job: ScrapItem, 
+  onComplete: () => void, 
+  onRelease: (id: string) => void,
+  onNavigate: (lat: number, lng: number) => void
 }) {
-  const openMaps = () => {
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${job.latitude},${job.longitude}`,
-      "_blank",
-    );
-  };
-
   return (
-    <Card className="overflow-hidden border-l-4 border-l-primary shadow-sm hover:shadow-md transition-all">
-      <div className="flex flex-col sm:flex-row">
-        {/* Image Section */}
-        <div className="sm:w-48 h-48 sm:h-auto relative bg-slate-200">
+    <Card className="overflow-hidden border-none shadow-md bg-white/80 backdrop-blur-sm group">
+      <div className="flex flex-col md:flex-row">
+        <div className="relative w-full md:w-64 aspect-video md:aspect-auto bg-slate-100">
           {job.imageUrl ? (
-            <Image
-              src={job.imageUrl}
-              alt={job.title}
-              fill
-              className="object-cover"
-            />
+            <img src={job.imageUrl} alt={job.title} className="object-cover w-full h-full" />
           ) : (
-            <div className="flex items-center justify-center h-full text-slate-400">
-              <MapPin className="h-8 w-8" />
+            <div className="flex h-full items-center justify-center text-slate-300">
+              <Package className="h-10 w-10 opacity-20" />
             </div>
           )}
-          <Badge
-            className={`absolute top-2 left-2 ${WASTE_TYPE_CONFIG[job.wasteType].color} text-white`}
-          >
-            {WASTE_TYPE_CONFIG[job.wasteType].label}
-          </Badge>
+          <Badge className="absolute top-3 right-3 bg-white/90 text-slate-900 border-none shadow-sm">{job.wasteType}</Badge>
         </div>
-
-        {/* Content Section */}
         <div className="flex-1 p-6 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-xl text-slate-900">{job.title}</h3>
-              <Badge
-                variant="outline"
-                className="border-orange-200 text-orange-700 bg-orange-50"
-              >
-                {job.estimatedWeight} KG
-              </Badge>
+               <h3 className="text-xl font-bold text-slate-800 tracking-tight">{job.title}</h3>
+               <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest border-primary/20 text-primary">Reserved</Badge>
             </div>
-            <p className="text-slate-500 text-sm mb-4 line-clamp-2">
-              {job.address}
-            </p>
-
-            {job.pickupTime && (
-              <div className="inline-flex items-center gap-2 text-xs font-medium bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                <Truck className="h-3 w-3" />
-                Expected:{" "}
-                {new Date(job.pickupTime as string).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+            <p className="text-sm text-slate-500 mb-4 line-clamp-2">{job.address}</p>
+            <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Scheduled Time</p>
+                  <p className="text-sm font-bold text-slate-700">{job.pickupTime ? format(new Date(job.pickupTime), "h:mm a") : "Soon"}</p>
+                </div>
               </div>
-            )}
+              <div className="h-10 w-[1px] bg-primary/10 hidden sm:block"></div>
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                  <CalendarIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Pickup Date</p>
+                  <p className="text-sm font-bold text-slate-700">{job.pickupTime ? format(new Date(job.pickupTime), "MMM do, yyyy") : "TBD"}</p>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div className="flex gap-3 mt-6">
-            <Button variant="outline" className="flex-1" onClick={openMaps}>
-              <Navigation className="h-4 w-4 mr-2" /> Navigate
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={onComplete} className="flex-1 h-12 rounded-xl font-bold">
+              <CheckCircle className="mr-2 h-4 w-4" /> Finalize Collection
             </Button>
-            <Button
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={() => onComplete(job.id)}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" /> Mark Collected
+            <Button variant="outline" className="px-5 h-12 rounded-xl" onClick={() => onNavigate(job.latitude, job.longitude)}>
+               <Navigation className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-xl text-red-500 hover:bg-red-50" title="Release Job" onClick={() => onRelease(job.id)}>
+              <XCircle className="h-5 w-5" />
             </Button>
           </div>
         </div>
@@ -433,26 +460,49 @@ function JobCard({
 
 function HistoryCard({ job }: { job: ScrapItem }) {
   return (
-    <Card className="opacity-80 hover:opacity-100 transition-opacity">
+    <Card className="opacity-80 hover:opacity-100 transition-opacity border-none shadow-sm">
       <CardContent className="p-4 flex items-center gap-4">
-        <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+        <div className="h-12 w-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
           <CheckCircle className="h-6 w-6" />
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold truncate">{job.title}</h4>
-          <p className="text-sm text-slate-500">{job.address}</p>
+          <h4 className="font-bold text-slate-800 truncate">{job.title}</h4>
+          <p className="text-xs text-slate-500 truncate">{job.address}</p>
         </div>
         <div className="text-right">
-          <div className="font-bold text-slate-900">
-            {job.estimatedWeight} kg
+          <div className="font-bold text-slate-700">{job.estimatedWeight} kg</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+            {job.completedAt ? format(new Date(job.completedAt), "MMM d, yyyy") : "Done"}
           </div>
-          <div className="text-xs text-slate-400">
-            {job.completedAt
-              ? new Date(job.completedAt as string).toLocaleDateString()
-              : "Done"}
-          </div>
+          {job.totalAmount && (
+            <div className="text-sm font-black text-primary transition-all">
+              ${job.totalAmount.toFixed(2)}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function StatBadge({ icon: Icon, label, value, active }: any) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-transparent transition-all ${active ? "bg-primary text-primary-foreground shadow-md" : "bg-white border-slate-100 text-slate-600 font-bold"}`}>
+      <Icon className="h-4 w-4" />
+      <span className="font-black text-sm">{value}</span>
+      <span className="hidden sm:inline text-[10px] uppercase tracking-widest opacity-70 italic">{label}</span>
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, title, desc }: any) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white/50 backdrop-blur-sm">
+      <div className="bg-slate-100 p-5 rounded-full mb-4">
+        <Icon className="h-9 w-9 text-slate-400" />
+      </div>
+      <h3 className="text-xl font-bold text-slate-900">{title}</h3>
+      <p className="text-slate-500 max-w-xs text-sm mt-1">{desc}</p>
+    </div>
   );
 }

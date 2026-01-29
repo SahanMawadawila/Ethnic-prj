@@ -56,6 +56,11 @@ model ScrapItem {
 
   pickupTime  DateTime? @map("pickup_time")
   completedAt DateTime? @map("completed_at")
+  
+  // Pricing (Set when collected)
+  unitPrice   Float?    @map("unit_price")
+  totalAmount Float?    @map("total_amount")
+
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 

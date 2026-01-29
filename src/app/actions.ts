@@ -80,6 +80,7 @@ export async function createScrapItem(formData: FormData) {
     })
 
     revalidatePath('/')
+    revalidatePath('/seller/dashboard')
     return { success: true }
   } catch (error) {
     console.error(error)
@@ -87,15 +88,58 @@ export async function createScrapItem(formData: FormData) {
   }
 }
 
-// COLLECTOR: Accept Pickup with ETA
-export async function acceptPickup(itemId: string, etaMinutes: number) {
+export async function updateScrapItem(id: string, formData: FormData) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Unauthorized")
 
-    // Calculate actual pickup time based on ETA minutes
-    const pickupTime = new Date(Date.now() + etaMinutes * 60000);
+    await prisma.scrapItem.update({
+      where: { id, sellerId: user.id },
+      data: {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        wasteType: formData.get('wasteType') as any,
+        estimatedWeight: parseFloat(formData.get('estimatedWeight') as string),
+        address: formData.get('address') as string,
+        imageUrl: formData.get('imageUrl') as string || "",
+      }
+    })
+
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error) {
+    console.error(error)
+    return { success: false, error: "Failed to update" }
+  }
+}
+
+export async function deleteScrapItem(id: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Unauthorized")
+
+    await prisma.scrapItem.delete({
+      where: { id, sellerId: user.id }
+    })
+
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error) {
+    console.error(error)
+    return { success: false, error: "Failed to delete" }
+  }
+}
+
+// COLLECTOR: Accept Pickup with Precise Time
+export async function acceptPickup(itemId: string, pickupTime: Date) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Unauthorized")
 
     await prisma.scrapItem.update({
       where: { id: itemId },
@@ -110,24 +154,28 @@ export async function acceptPickup(itemId: string, etaMinutes: number) {
     revalidatePath('/map')
     return { success: true }
   } catch (error) {
+    console.error("Error accepting pickup:", error)
     return { success: false, error: "Failed to accept" }
   }
 }
 
-// COLLECTOR: Mark as Collected
-export async function markAsCollected(itemId: string) {
+// COLLECTOR: Mark as Collected with Pricing
+export async function markAsCollected(itemId: string, unitPrice: number, totalAmount: number) {
   try {
     await prisma.scrapItem.update({
       where: { id: itemId },
       data: {
         status: 'COLLECTED',
-        completedAt: new Date()
-      }
+        completedAt: new Date(),
+        unitPrice: unitPrice,
+        totalAmount: totalAmount
+      } as any
     })
     revalidatePath('/collector/dashboard')
     revalidatePath('/seller/dashboard')
     return { success: true }
   } catch (error) {
+    console.error("Error marking as collected:", error)
     return { success: false }
   }
 }
@@ -144,6 +192,31 @@ export async function disputePickup(itemId: string) {
       }
     })
     revalidatePath('/seller/dashboard')
+    revalidatePath('/collector/dashboard')
+    return { success: true }
+  } catch (error) {
+    return { success: false }
+  }
+}
+
+// COLLECTOR: Release/Reject Pickup
+export async function releasePickup(itemId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Unauthorized")
+
+    await prisma.scrapItem.update({
+      where: { id: itemId, collectorId: user.id },
+      data: {
+        status: 'ACTIVE',
+        collectorId: null,
+        pickupTime: null
+      }
+    })
+    revalidatePath('/collector/dashboard')
+    revalidatePath('/seller/dashboard')
+    revalidatePath('/')
     return { success: true }
   } catch (error) {
     return { success: false }
