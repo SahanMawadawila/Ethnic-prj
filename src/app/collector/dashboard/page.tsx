@@ -101,7 +101,14 @@ export default function CollectorDashboard() {
         setLocationError(null);
       },
       (error) => {
-        console.error("Geo Error:", error);
+        console.error("Geo Error Details:", {
+          code: error.code,
+          message: error.message,
+          PERMISSION_DENIED: error.PERMISSION_DENIED,
+          POSITION_UNAVAILABLE: error.POSITION_UNAVAILABLE,
+          TIMEOUT: error.TIMEOUT
+        });
+        
         switch (error.code) {
           case error.PERMISSION_DENIED:
             setLocationError("Location access denied. Please enable GPS.");
@@ -113,11 +120,15 @@ export default function CollectorDashboard() {
             setLocationError("Location request timed out.");
             break;
           default:
-            setLocationError("An unknown location error occurred.");
+            setLocationError(`Location error: ${error.message || "Unknown error"}`);
             break;
         }
       },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 },
+      { 
+        enableHighAccuracy: true, // Keep true for better tracking, but...
+        maximumAge: 10000, 
+        timeout: 20000 // ...increase timeout significantly to avoiding "Timeout" errors on slow fix
+      },
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -275,7 +286,12 @@ export default function CollectorDashboard() {
           {/* TAB 1: MAP VIEW */}
           <TabsContent value="map" className="mt-0 flex-1 relative">
             <div className="absolute inset-0">
-              <MapView listings={mapDisplayItems} onAcceptPickup={handleAcceptPickup} />
+              <MapView 
+              listings={mapDisplayItems} 
+              onAcceptPickup={handleAcceptPickup}
+              radius={operatingRadius}
+              showGeofence={radiusFilterEnabled}
+            />
             </div>
             
             <div className="absolute top-4 right-4 z-10">

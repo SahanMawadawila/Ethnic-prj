@@ -169,7 +169,7 @@ export async function markAsCollected(itemId: string, unitPrice: number, totalAm
         completedAt: new Date(),
         unitPrice: unitPrice,
         totalAmount: totalAmount
-      } as any
+      }
     })
     revalidatePath('/collector/dashboard')
     revalidatePath('/seller/dashboard')

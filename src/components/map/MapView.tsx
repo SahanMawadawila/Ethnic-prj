@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ScrapItem } from "@/types";
+import { ScrapItem, WASTE_TYPE_CONFIG } from "@/types";
 import { ListingSheet } from "./ListingSheet";
 import { Navigation } from "lucide-react";
 import { useMapStore } from "@/store/mapStore";
@@ -18,9 +18,11 @@ const MapInner = dynamic(() => import("./MapInner"), {
 interface MapViewProps {
   listings: ScrapItem[];
   onAcceptPickup: (id: string, time: Date) => Promise<void>;
+  radius?: number;
+  showGeofence?: boolean;
 }
 
-export function MapView({ listings, onAcceptPickup }: MapViewProps) {
+export function MapView({ listings, onAcceptPickup, radius, showGeofence }: MapViewProps) {
   const [selectedListing, setSelectedListing] = useState<ScrapItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const { currentLatitude, currentLongitude } = useMapStore();
@@ -66,6 +68,8 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
         currentLocation={currentLocation}
         onMarkerClick={handleMarkerClick}
         selectedListing={selectedListing}
+        radius={radius}
+        showGeofence={showGeofence}
       />
 
       {/* Floating Controls Overlay */}
@@ -79,6 +83,16 @@ export function MapView({ listings, onAcceptPickup }: MapViewProps) {
                <Navigation className="h-5 w-5" />
             </button>
          )}
+      </div>
+
+      {/* Waste Type Legend */}
+      <div className="absolute bottom-10 left-4 z-[400] flex flex-wrap bg-white/95 backdrop-blur-md px-5 py-3 rounded-2xl shadow-lg border border-slate-200 gap-x-6 gap-y-2 max-w-[90%]">
+        {Object.values(WASTE_TYPE_CONFIG).map((config) => (
+          <div key={config.label} className="flex items-center gap-2">
+            <div className={`w-2.5 h-2.5 rounded-full ring-2 ring-white shadow-sm ${config.mapColor}`} />
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest leading-none">{config.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Slide-up Sheet */}

@@ -54,17 +54,38 @@ export interface ScrapItem {
 // Config Helpers
 export const WASTE_TYPE_CONFIG: Record<
   WasteType,
-  { label: string; color: string; bgColor: string }
+  { label: string; color: string; bgColor: string; mapColor: string }
 > = {
-  PLASTIC: { label: "Plastic", color: "text-blue-600", bgColor: "bg-blue-100" },
-  METAL: { label: "Metal", color: "text-red-600", bgColor: "bg-red-100" },
-  PAPER: { label: "Paper", color: "text-yellow-600", bgColor: "bg-yellow-100" },
+  PLASTIC: { 
+    label: "Plastic", 
+    color: "text-blue-600", 
+    bgColor: "bg-blue-100",
+    mapColor: "bg-blue-500" 
+  },
+  METAL: { 
+    label: "Metal", 
+    color: "text-red-600", 
+    bgColor: "bg-red-100",
+    mapColor: "bg-red-500"
+  },
+  PAPER: { 
+    label: "Paper", 
+    color: "text-yellow-600", 
+    bgColor: "bg-yellow-100",
+    mapColor: "bg-yellow-400"
+  },
   E_WASTE: {
     label: "E-Waste",
     color: "text-purple-600",
     bgColor: "bg-purple-100",
+    mapColor: "bg-purple-500"
   },
-  MIXED: { label: "Mixed", color: "text-gray-600", bgColor: "bg-gray-100" },
+  MIXED: { 
+    label: "Mixed", 
+    color: "text-gray-600", 
+    bgColor: "bg-gray-100",
+    mapColor: "bg-slate-500"
+  },
 };
 
 export const STATUS_CONFIG: Record<
